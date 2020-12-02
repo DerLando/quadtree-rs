@@ -297,51 +297,31 @@ where
         }
     }
 
-    /// Finds the data point stored in this node, or it's child nodes,
-    /// that is closest to the given test point.
-    // TODO: It's not that easy, we probably need spatial queries to implement this
-    // probably walk down the tree to the finest node, that could contain the point
-    // and do a find_region() with a region double the size of the node, centered at the query point
-    pub(crate) fn find_closest(&self, pt: &Point) -> Option<&Spatial<T>> {
+    pub(crate) fn minimum_coordinate_distance(&self, pt: &Point) -> Option<f32> {
         fn coordinate_distance(a: &Point, b: &Point) -> f32 {
             (a.x() - b.x()).abs().max((a.y() - b.y()).abs())
         }
 
         if let Some(quadrant) = self.bounds().find_quadrant(pt) {
             match self.quadrant(&quadrant) {
-                None => { // My best idea for now is to get all child data points and sort them, seems inefficient
-                    let mut candidates = self.data_children();
-                    candidates.sort_by(|a, b| {
-                        a.position()
-                            .squared_distance(pt)
-                            .partial_cmp(&b.position().squared_distance(a.position()))
-                            .expect("Could not order candidate entities")
+                None => {
+                    let mut corners = self.bounds().corners();
+                    corners.sort_by(|a, b| {
+                        a.squared_distance(pt)
+                            .partial_cmp(&b.squared_distance(pt))
+                            .expect("Could not order corners")
                     });
+                    corners.reverse();
+                    let farthest_corner = corners.first().expect("Corners can not be empty");
 
-                    candidates.into_iter().next()
-                },
-                Some(tn) => {
-                    match tn {
-                        TreeNode::Point(cur_pt) => {
-                            let size = coordinate_distance(pt, cur_pt.position());
-                            let query_rect = Rectangle::new_centered(*pt, size * 2.0, size * 2.0);
-                            let mut candidates = self
-                                .find_in_bounds(&query_rect)
-                                .expect("Needs to at least contain cur_pt, so not None");
-                            candidates.sort_by(|a, b| {
-                                a.position()
-                                    .squared_distance(pt)
-                                    .partial_cmp(&b.position().squared_distance(a.position()))
-                                    .expect("Could not order candidate entities")
-                            });
-                            Some(candidates.first().expect("Candidates can not be empty"))
-                        }
-                        TreeNode::Node(node) => {
-                            // recurse down until the query point can no longer be contained
-                            node.find_closest(pt)
-                        }
-                    }
+                    Some(coordinate_distance(pt, &farthest_corner) + 0.1)
                 }
+                Some(tn) => match tn {
+                    TreeNode::Point(cur_pt) => {
+                        Some(coordinate_distance(pt, cur_pt.position()) + 0.1)
+                    }
+                    TreeNode::Node(node) => node.minimum_coordinate_distance(pt),
+                },
             }
         } else {
             None
@@ -570,9 +550,18 @@ mod test {
         println!("size of f32: {:?}", std::mem::size_of::<f32>());
         println!("size of Point: {:?}", std::mem::size_of::<Point>());
         println!("size of Rectangle: {:?}", std::mem::size_of::<Rectangle>());
-        println!("size of Spatial<u8>: {:?}", std::mem::size_of::<Spatial<u8>>());
-        println!("size of Box<Node<u8>>: {:?}", std::mem::size_of::<Box<Node<u8>>>());
-        println!("size of TreeNode<u8>: {:?}", std::mem::size_of::<TreeNode<u8>>());
+        println!(
+            "size of Spatial<u8>: {:?}",
+            std::mem::size_of::<Spatial<u8>>()
+        );
+        println!(
+            "size of Box<Node<u8>>: {:?}",
+            std::mem::size_of::<Box<Node<u8>>>()
+        );
+        println!(
+            "size of TreeNode<u8>: {:?}",
+            std::mem::size_of::<TreeNode<u8>>()
+        );
         println!("size of Node<u8>: {:?}", std::mem::size_of::<Node<u8>>());
 
         assert!(true)

@@ -1,4 +1,4 @@
-use crate::{node::Node, point::Point, rectangle::Rectangle, spatial::Spatial};
+use crate::{node::Node, point, point::Point, rectangle::Rectangle, spatial::Spatial};
 
 /// # QuadTree
 /// A simple, naive implementation of a basic `QuadTree` data structure.
@@ -209,6 +209,32 @@ where
         }
     }
 
+    // TODO: pricate nearest neighbour that returns an iterator over spatial<T>
+    // we can then consume this in the public nearest neighbour methods and map to either T or position
+    fn find_nearest_neighbors(
+        &self,
+        pt: &Point,
+        n: usize,
+    ) -> Option<impl Iterator<Item = &Spatial<T>>> {
+        if let Some(dist) = self.root.minimum_coordinate_distance(&pt) {
+            let query_rect = Rectangle::new_centered(*pt, dist * 2.0, dist * 2.0);
+            match self.root.find_in_bounds(&query_rect) {
+                Some(mut data) => {
+                    data.sort_by(|a, b| {
+                        a.position()
+                            .squared_distance(&pt)
+                            .partial_cmp(&b.position().squared_distance(&pt))
+                            .expect("Failed to order candidates!")
+                    });
+                    Some(data.into_iter().take(n))
+                }
+                None => None,
+            }
+        } else {
+            None
+        }
+    }
+
     /// Finds the data of the nearest neighbor to a given test point, inside the quadtree.
     ///
     /// # Arguments
@@ -229,9 +255,15 @@ where
     ///
     /// ```
     pub fn find_nearest_neighbor(&self, pt: impl Into<Point>) -> Option<&T> {
-        match self.root.find_closest(&pt.into()) {
-            Some(data) => Some(data.data()),
-            None => None
+        let pt = pt.into();
+        if let Some(mut iter) = self.find_nearest_neighbors(&pt, 1) {
+            if let Some(spatial) = iter.next() {
+                Some(spatial.data())
+            } else {
+                None
+            }
+        } else {
+            None
         }
     }
 
@@ -255,9 +287,15 @@ where
     ///
     /// ```
     pub fn find_nearest_neighbor_position(&self, pt: impl Into<Point>) -> Option<Point> {
-        match self.root.find_closest(&pt.into()) {
-            None => None,
-            Some(data) => Some(*data.position()),
+        let pt = pt.into();
+        if let Some(mut iter) = self.find_nearest_neighbors(&pt, 1) {
+            if let Some(spatial) = iter.next() {
+                Some(*spatial.position())
+            } else {
+                None
+            }
+        } else {
+            None
         }
     }
 
