@@ -1,9 +1,10 @@
 use crate::{node::Node, point, point::Point, rectangle::Rectangle, spatial::Spatial};
 
 /// # QuadTree
-/// A simple, naive implementation of a basic `QuadTree` data structure.
+/// A simple, naive implementation of a basic [QuadTree](https://en.wikipedia.org/wiki/Quadtree) data structure.
 /// Allows insertion of metadata which implements [`Sized`] with
-/// a position in 2d-Space, a [`Point`].
+/// a position in 2d-Space, a [`Point`]. This was one of my first projects ever with rust, so
+/// this should definitely not be considered something production ready, but rather a learning experience.
 pub struct QuadTree<T>
 where
     T: Sized,
